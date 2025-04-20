@@ -51,8 +51,11 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    # Initialize Supabase client
-    supabase = create_client(supabase_url, supabase_key)
+    # Initialize Supabase client with project URL and key
+    supabase = create_client(
+        supabase_url,
+        supabase_key
+    )
     print("Successfully initialized Supabase client")
 except Exception as e:
     print(f"Error initializing Supabase client: {str(e)}")
