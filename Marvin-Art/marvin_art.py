@@ -31,6 +31,10 @@ app = FastAPI(
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 
+if not supabase_url or not supabase_key:
+    print("Error: SUPABASE_URL or SUPABASE_KEY not found in environment variables")
+    sys.exit(1)
+
 # Debug connection information
 print(f"Supabase URL: {supabase_url}")
 print(f"Supabase Key: {supabase_key[:10]}... (truncated)")
@@ -52,7 +56,6 @@ try:
     print("Successfully initialized Supabase client")
 except Exception as e:
     print(f"Error initializing Supabase client: {str(e)}")
-    print("Please check your Supabase URL and API key.")
     sys.exit(1)
 
 # Initialize OpenAI client
