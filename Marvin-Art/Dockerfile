@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 
+# Install specific version of gotrue before other dependencies
+RUN pip install --no-cache-dir gotrue==2.8.0
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -25,4 +28,4 @@ RUN mkdir -p images
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["python", "marvin_art.py"] 
+CMD ["python", "marvin_art.py"]
