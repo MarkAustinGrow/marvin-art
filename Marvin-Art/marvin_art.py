@@ -47,7 +47,7 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    # Initialize Supabase client without proxy
+    # Initialize Supabase client
     supabase = create_client(supabase_url, supabase_key)
     print("Successfully initialized Supabase client")
 except Exception as e:
