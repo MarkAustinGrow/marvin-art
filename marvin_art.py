@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from supabase import create_client
+from supabase import create_client, __version__ as supabase_version
 import json
 from typing import Dict, Any, Literal, List, Optional
 from datetime import datetime
@@ -35,6 +35,7 @@ supabase_key = os.getenv("SUPABASE_KEY")
 # Debug connection information
 print(f"Supabase URL: {supabase_url}")
 print(f"Supabase Key: {supabase_key[:10]}... (truncated)")
+print(f"Supabase Python library version: {supabase_version}")
 
 # Check if we can resolve the hostname
 try:
@@ -48,7 +49,12 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    supabase = create_client(supabase_url, supabase_key)
+    # Initialize Supabase client with only the required parameters
+    # Explicitly avoiding any proxy settings
+    supabase = create_client(
+        supabase_url=supabase_url,
+        supabase_key=supabase_key
+    )
     print("Successfully initialized Supabase client")
 except Exception as e:
     print(f"Error initializing Supabase client: {str(e)}")
@@ -517,4 +523,4 @@ if __name__ == "__main__":
     scheduler_thread.start()
     
     # Start FastAPI server
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

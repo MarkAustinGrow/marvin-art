@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import create_client, Client, __version__ as supabase_version
 import json
 from typing import Dict, Any, Literal, List, Optional
 from datetime import datetime
@@ -38,6 +38,7 @@ if not supabase_url or not supabase_key:
 # Debug connection information
 print(f"Supabase URL: {supabase_url}")
 print(f"Supabase Key: {supabase_key[:10]}... (truncated)")
+print(f"Supabase Python library version: {supabase_version}")
 
 # Check if we can resolve the hostname
 try:
@@ -51,10 +52,11 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    # Initialize Supabase client with project URL and key
+    # Initialize Supabase client with only the required parameters
+    # Explicitly avoiding any proxy settings
     supabase = create_client(
-        supabase_url,
-        supabase_key
+        supabase_url=supabase_url,
+        supabase_key=supabase_key
     )
     print("Successfully initialized Supabase client")
 except Exception as e:
@@ -108,4 +110,4 @@ class MarvinArt:
             return response.data[0]
         except Exception as e:
             print(f"Error loading character data: {str(e)}")
-            return {} 
+            return {}

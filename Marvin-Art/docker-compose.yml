@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  marvin-art:
+    build: .
+    container_name: marvin-art
+    volumes:
+      - ./images:/app/images
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    restart: unless-stopped
+
+  art_generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./images:/app/images
+    restart: unless-stopped
+
+  social_agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python social_agent.py
+    ports:
+      - "8001:8001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    depends_on:
+      - art_generator
+    restart: unless-stopped 
