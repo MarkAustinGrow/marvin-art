@@ -107,19 +107,29 @@ SUPABASE_URL=your_supabase_url_here
 SUPABASE_KEY=your_supabase_key_here
 ```
 
+## Project Structure
+
+The project is organized as follows:
+
+```
+Marvin-Art/
+├── src/                  # Source code directory
+│   ├── marvin_art.py     # Art Generator code
+│   └── requirements.txt  # Dependencies
+├── docker/               # Docker-related files
+│   └── Dockerfile        # Dockerfile for the Art Generator
+├── docker-compose.yml    # Docker Compose configuration
+└── docker-compose.debug.yml # Debug configuration
+```
+
 ## Docker Deployment
 
 The system is containerized using Docker:
 
 1. **Marvin Art Generator Container**
    - Port: 8000
-   - Environment: Python 3.11
-   - Dependencies: Listed in `requirements.txt`
-
-2. **Social Media Agent Container**
-   - Port: 8001
-   - Environment: Python 3.11
-   - Dependencies: Listed in `Marvin-Social/requirements.txt`
+   - Environment: Python 3.8
+   - Dependencies: Listed in `src/requirements.txt`
 
 ## API Endpoints
 

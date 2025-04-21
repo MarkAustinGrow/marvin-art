@@ -6,7 +6,7 @@ This guide provides instructions for debugging issues with the Marvin Art Genera
 
 We've created two files to help with debugging:
 
-1. `docker-compose.debug.yml` - A modified Docker Compose file that runs the container with a shell instead of the Python script
+1. `docker-compose.debug.yml` - A modified Docker Compose file that runs the container with a shell instead of the Python script (using the new project structure)
 2. `debug_container.sh` - A shell script that runs diagnostic tests on the container
 
 ## How to Use the Debugging Tools

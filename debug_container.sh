@@ -6,7 +6,7 @@ docker-compose down
 
 # Start the container with the debug configuration
 echo "Starting container with debug configuration..."
-docker-compose -f docker-compose.debug.yml up -d
+cd $(dirname "$0") && docker-compose -f docker-compose.debug.yml up -d
 
 # Wait for the container to start
 echo "Waiting for container to start..."
