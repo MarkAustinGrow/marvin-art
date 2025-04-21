@@ -323,7 +323,7 @@ class MarvinArt:
             print(f"Error generating image: {str(e)}")
             raise
 
-    def save_to_database(self, prompt: str, image_data: Dict[str, Any]) -> Dict[str, Any]:
+    def save_to_database(self, prompt: str, image_data: Dict[str, Any], generation_type: str = "auto") -> Dict[str, Any]:
         """Save the generated prompt and image data to Supabase"""
         try:
             # First, save the prompt
@@ -347,6 +347,7 @@ class MarvinArt:
                 "image_url": image_data["image_url"],
                 "local_path": image_data["local_path"],
                 "settings": image_data["settings"],
+                "generation_type": generation_type,  # Add generation type
                 "created_at": datetime.utcnow().isoformat()
             }
             
@@ -374,18 +375,23 @@ MAX_IMAGES_PER_DAY = 2
 GENERATION_INTERVAL_HOURS = 12  # Space generations evenly throughout the day
 CHARACTER_ID = "marvin"  # ID of the character in the database
 
-def get_generated_images_today() -> int:
-    """Get the number of images generated today"""
+def get_generated_images_today(generation_type: str = "auto") -> int:
+    """Get the number of images generated today of a specific type"""
     try:
         today = datetime.now().date()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
         
-        response = supabase.table('images')\
+        # Add filter for generation_type
+        query = supabase.table('images')\
             .select('id')\
             .gte('created_at', today_start.isoformat())\
-            .lte('created_at', today_end.isoformat())\
-            .execute()
+            .lte('created_at', today_end.isoformat())
+            
+        if generation_type:
+            query = query.eq('generation_type', generation_type)
+            
+        response = query.execute()
         
         return len(response.data)
     except Exception as e:
@@ -411,14 +417,16 @@ def get_unposted_images() -> List[Dict[str, Any]]:
         print(f"Error getting unposted images: {str(e)}")
         return []
 
-def auto_generate():
-    """Automatically generate art based on schedule"""
+def auto_generate(generation_type: str = "auto"):
+    """Automatically generate art based on schedule or manual trigger"""
     try:
-        # Check if we've reached the daily limit
-        images_today = get_generated_images_today()
-        if images_today >= MAX_IMAGES_PER_DAY:
-            print(f"Daily generation limit reached ({images_today}/{MAX_IMAGES_PER_DAY})")
-            return
+        # Only check limit for automatic generation
+        if generation_type == "auto":
+            # Check if we've reached the daily limit for automatic generation
+            images_today = get_generated_images_today(generation_type="auto")
+            if images_today >= MAX_IMAGES_PER_DAY:
+                print(f"Daily automatic generation limit reached ({images_today}/{MAX_IMAGES_PER_DAY})")
+                return
         
         # Initialize art generator
         art_generator = MarvinArt()
@@ -433,8 +441,8 @@ def auto_generate():
             print(f"Error generating image: {image_data['error']}")
             return
         
-        # Save to database
-        result = art_generator.save_to_database(prompt, image_data)
+        # Save to database with the specified generation type
+        result = art_generator.save_to_database(prompt, image_data, generation_type)
         if "error" in result:
             print(f"Error saving to database: {result['error']}")
             return
@@ -461,13 +469,8 @@ async def get_character():
 
 @app.post("/generate", response_model=ImageGenerationResponse)
 async def generate_art(request: ArtRequest):
-    """Generate new art using Marvin's character"""
+    """Generate new art using Marvin's character (no daily limit)"""
     try:
-        # Check if we've reached the daily limit
-        images_today = get_generated_images_today()
-        if images_today >= MAX_IMAGES_PER_DAY:
-            raise HTTPException(status_code=429, detail=f"Daily generation limit reached ({images_today}/{MAX_IMAGES_PER_DAY})")
-        
         # Generate art prompt
         prompt = marvin.generate_art_prompt()
         
@@ -478,8 +481,8 @@ async def generate_art(request: ArtRequest):
             quality=request.quality
         )
         
-        # Save to database
-        result = marvin.save_to_database(prompt, image_data)
+        # Save to database as manual generation
+        result = marvin.save_to_database(prompt, image_data, generation_type="manual")
         if "error" in result:
             raise HTTPException(status_code=500, detail=f"Database save failed: {result['error']}")
         
@@ -524,10 +527,10 @@ async def get_unposted():
 
 @app.post("/trigger-generation")
 async def trigger_generation():
-    """Manually trigger art generation"""
+    """Manually trigger art generation (no daily limit)"""
     try:
-        # Start the auto_generate in a separate thread
-        thread = Thread(target=auto_generate)
+        # Start the auto_generate in a separate thread with manual type
+        thread = Thread(target=lambda: auto_generate(generation_type="manual"))
         thread.daemon = True
         thread.start()
         return {"status": "success", "message": "Art generation triggered"}
