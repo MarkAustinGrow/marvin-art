@@ -314,7 +314,7 @@ class MarvinArt:
         size: DALLE_SIZES = "1024x1024",
         quality: DALLE_QUALITY = "standard"
     ) -> Dict[str, Any]:
-        """Generate an image using the specified API"""
+        """Generate an image using the specified API and store in Supabase Storage"""
         try:
             if api == "dalle":
                 print(f"\nGenerating image with DALL-E 3 ({size}, {quality} quality)...")
@@ -326,27 +326,66 @@ class MarvinArt:
                     n=1
                 )
                 
-                # Get the image URL
-                image_url = response.data[0].url
-                print(f"\nGenerated image URL: {image_url}")
+                # Get the image URL from DALL-E
+                dalle_url = response.data[0].url
+                print(f"\nGenerated image URL: {dalle_url}")
                 
-                # Download and save the image
-                image_response = requests.get(image_url)
+                # Download the image
+                image_response = requests.get(dalle_url)
                 image = Image.open(BytesIO(image_response.content))
+                
+                # Create a unique filename
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"marvin_art_{timestamp}.png"
-                image.save(filename)
-                print(f"Image saved as: {filename}")
                 
-                return {
-                    "image_url": image_url,
-                    "local_path": filename,
-                    "settings": {
-                        "model": "dall-e-3",
-                        "size": size,
-                        "quality": quality
+                # Save locally as backup
+                image.save(filename)
+                print(f"Image saved locally as: {filename}")
+                
+                try:
+                    # Upload to Supabase Storage
+                    storage_path = f"images/{timestamp}/{filename}"
+                    
+                    # Convert image to bytes for upload
+                    img_byte_arr = BytesIO()
+                    image.save(img_byte_arr, format='PNG')
+                    img_byte_arr.seek(0)
+                    
+                    # Upload to storage bucket
+                    supabase.storage.from_("marvin-art-images").upload(
+                        path=storage_path,
+                        file=img_byte_arr.getvalue(),
+                        file_options={"content-type": "image/png"}
+                    )
+                    print(f"Image uploaded to Supabase Storage: {storage_path}")
+                    
+                    # Get permanent public URL
+                    permanent_url = supabase.storage.from_("marvin-art-images").get_public_url(storage_path)
+                    
+                    return {
+                        "image_url": permanent_url,  # Store permanent URL instead of temporary DALL-E URL
+                        "dalle_url": dalle_url,      # Keep original URL for reference
+                        "local_path": filename,
+                        "storage_path": storage_path,
+                        "settings": {
+                            "model": "dall-e-3",
+                            "size": size,
+                            "quality": quality
+                        }
                     }
-                }
+                except Exception as storage_error:
+                    print(f"Error uploading to Supabase Storage: {str(storage_error)}")
+                    print("Falling back to original URL")
+                    # Fall back to original behavior if storage upload fails
+                    return {
+                        "image_url": dalle_url,
+                        "local_path": filename,
+                        "settings": {
+                            "model": "dall-e-3",
+                            "size": size,
+                            "quality": quality
+                        }
+                    }
             else:
                 raise ValueError(f"Unsupported API: {api}")
                 
@@ -381,6 +420,13 @@ class MarvinArt:
                 "generation_type": generation_type,  # Add generation type
                 "created_at": datetime.utcnow().isoformat()
             }
+            
+            # Add storage path and dalle_url if available
+            if "storage_path" in image_data:
+                image_record["storage_path"] = image_data["storage_path"]
+            
+            if "dalle_url" in image_data:
+                image_record["dalle_url"] = image_data["dalle_url"]
             
             image_response = supabase.table('images').insert(image_record).execute()
             
@@ -630,32 +676,79 @@ async def get_logs(
 
 @app.get("/proxy-image/{image_id}")
 async def proxy_image(image_id: str):
-    """Proxy images from external sources to avoid CORS issues"""
+    """Proxy images from Supabase Storage or other sources"""
     try:
         # Log the image proxy request
         logger.info(f"Image proxy request for image ID: {image_id}")
         
-        # Get image URL from database
-        image_data = supabase.table('images').select('image_url').eq('id', image_id).execute()
+        # Get image data from database
+        image_data = supabase.table('images').select('image_url, storage_path, local_path, dalle_url').eq('id', image_id).execute()
         if not image_data.data:
             logger.error(f"Image not found: {image_id}")
             raise HTTPException(status_code=404, detail="Image not found")
-            
-        image_url = image_data.data[0]['image_url']
         
-        # Fetch the image
-        response = requests.get(image_url)
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch image from {image_url}: {response.status_code}")
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch image")
-            
-        # Return the image with proper content type
-        return Response(
-            content=response.content,
-            media_type=response.headers.get('Content-Type', 'image/png')
-        )
+        # Try to serve from Supabase Storage first (preferred method)
+        if image_data.data[0].get('storage_path'):
+            try:
+                # Get the image from storage
+                storage_path = image_data.data[0].get('storage_path')
+                permanent_url = image_data.data[0].get('image_url')
+                
+                # Redirect to the permanent URL
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=permanent_url)
+            except Exception as e:
+                logger.error(f"Error accessing Supabase Storage: {str(e)}")
+                # Fall through to next option
+        
+        # Try local file next
+        local_path = image_data.data[0].get('local_path')
+        if local_path and os.path.exists(local_path):
+            logger.info(f"Serving local image file: {local_path}")
+            return FileResponse(local_path, media_type="image/png")
+        
+        # Try the original DALL-E URL if available
+        dalle_url = image_data.data[0].get('dalle_url')
+        if dalle_url:
+            try:
+                response = requests.get(dalle_url, timeout=5)
+                if response.status_code == 200:
+                    return Response(
+                        content=response.content,
+                        media_type=response.headers.get('Content-Type', 'image/png')
+                    )
+            except:
+                logger.warning(f"Failed to fetch image from DALL-E URL: {dalle_url}")
+                # Fall through to next option
+        
+        # Last resort: try the image_url if it's different from the storage URL
+        image_url = image_data.data[0].get('image_url')
+        if image_url and (not image_data.data[0].get('storage_path') or image_url != permanent_url):
+            try:
+                response = requests.get(image_url, timeout=5)
+                if response.status_code == 200:
+                    return Response(
+                        content=response.content,
+                        media_type=response.headers.get('Content-Type', 'image/png')
+                    )
+            except:
+                logger.warning(f"Failed to fetch image from image_url: {image_url}")
+                # Fall through to placeholder
+        
+        # If all else fails, return placeholder
+        placeholder_path = "static/placeholder.png"
+        if os.path.exists(placeholder_path):
+            logger.warning(f"Serving placeholder image for image ID: {image_id}")
+            return FileResponse(placeholder_path, media_type="image/png")
+        
+        # If even placeholder doesn't exist, return error
+        raise HTTPException(status_code=404, detail="Image not available")
     except Exception as e:
         logger.error(f"Error proxying image: {str(e)}")
+        # Return a placeholder image instead of an error
+        placeholder_path = "static/placeholder.png"
+        if os.path.exists(placeholder_path):
+            return FileResponse(placeholder_path, media_type="image/png")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Schedule tasks
