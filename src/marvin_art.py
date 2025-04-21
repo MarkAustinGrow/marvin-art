@@ -12,7 +12,7 @@ import socket
 import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import Optional
 import os
@@ -626,6 +626,36 @@ async def get_logs(
         return response.data
     except Exception as e:
         logger.error(f"Error retrieving logs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/proxy-image/{image_id}")
+async def proxy_image(image_id: str):
+    """Proxy images from external sources to avoid CORS issues"""
+    try:
+        # Log the image proxy request
+        logger.info(f"Image proxy request for image ID: {image_id}")
+        
+        # Get image URL from database
+        image_data = supabase.table('images').select('image_url').eq('id', image_id).execute()
+        if not image_data.data:
+            logger.error(f"Image not found: {image_id}")
+            raise HTTPException(status_code=404, detail="Image not found")
+            
+        image_url = image_data.data[0]['image_url']
+        
+        # Fetch the image
+        response = requests.get(image_url)
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch image from {image_url}: {response.status_code}")
+            raise HTTPException(status_code=response.status_code, detail="Failed to fetch image")
+            
+        # Return the image with proper content type
+        return Response(
+            content=response.content,
+            media_type=response.headers.get('Content-Type', 'image/png')
+        )
+    except Exception as e:
+        logger.error(f"Error proxying image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Schedule tasks

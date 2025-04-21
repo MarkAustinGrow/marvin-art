@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 imgWrapper.className = 'image-wrapper';
                 
                 const img = document.createElement('img');
-                img.src = image.image_url;
+                img.src = `/proxy-image/${image.id}`;
                 img.alt = 'Generated art';
                 
                 // Add loading state and fade-in effect
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.style.display = 'block';
         
         // Set image source (will load in background)
-        modalImg.src = image.image_url;
+        modalImg.src = `/proxy-image/${image.id}`;
         
         // When image loads, remove loading state
         modalImg.onload = function() {
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${formattedSettings}
             </div>
             <div class="detail-actions">
-                <a href="${image.image_url}" target="_blank" class="btn secondary">Open Image in New Tab</a>
+                <a href="/proxy-image/${image.id}" target="_blank" class="btn secondary">Open Image in New Tab</a>
             </div>
         `;
     }
