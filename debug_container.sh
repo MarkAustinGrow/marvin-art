@@ -43,7 +43,7 @@ try:
     supabase = create_client(supabase_url, supabase_key)
     
     # Check if the tables exist
-    tables = ['characters', 'prompts', 'images', 'feedback']
+    tables = ['character_files', 'prompts', 'images', 'feedback']
     for table in tables:
         try:
             result = supabase.table(table).select('*').limit(1).execute()

@@ -19,14 +19,18 @@ The Marvin Art Generator is a distributed system that generates AI art using cha
 
 The system uses Supabase with the following tables:
 
-### characters
+### character_files
 - Stores character definitions and personalities
 - Used for generating consistent art prompts
 - Fields:
   - `id` (UUID): Primary key
-  - `name` (text): Character name
-  - `data` (jsonb): Character configuration
+  - `agent_name` (text): Character name
+  - `display_name` (text): Display name
+  - `content` (jsonb): Character configuration
+  - `version` (int4): Version number
+  - `is_active` (bool): Active status
   - `created_at` (timestamp): Creation timestamp
+  - `updated_at` (timestamp): Update timestamp
 
 ### prompts
 - Stores generated art prompts
@@ -34,7 +38,7 @@ The system uses Supabase with the following tables:
 - Fields:
   - `id` (UUID): Primary key
   - `text` (text): The prompt text
-  - `character_id` (UUID): Reference to characters table
+  - `character_id` (UUID): Reference to character_files table
   - `created_at` (timestamp): Creation timestamp
 
 ### images
@@ -196,4 +200,4 @@ The system is containerized using Docker:
 4. **Security**
    - Keep dependencies updated
    - Monitor for security issues
-   - Follow security best practices 
+   - Follow security best practices
