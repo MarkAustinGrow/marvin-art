@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalImg = document.getElementById('modal-image');
     const modalDetails = document.getElementById('modal-details');
     const closeBtn = document.getElementsByClassName('close')[0];
+    const refreshLogsBtn = document.getElementById('refresh-logs');
+    const logLevelFilter = document.getElementById('log-level-filter');
+    const logDaysFilter = document.getElementById('log-days-filter');
+    const logsContainer = document.getElementById('logs-container');
     
     // Load images on page load
     loadImages();
@@ -269,4 +273,93 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.style.display = 'none';
         }
     });
+    
+    // Load logs from API
+    function loadLogs() {
+        if (!logsContainer) return;
+        
+        const level = logLevelFilter ? logLevelFilter.value : '';
+        const days = logDaysFilter ? logDaysFilter.value : '7';
+        
+        logsContainer.innerHTML = '<div class="loading-spinner"></div>';
+        
+        fetch(`/logs?limit=100&days=${days}${level ? '&level=' + level : ''}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(logs => {
+            if (logs.length === 0) {
+                logsContainer.innerHTML = '<p class="empty-message">No logs found for the selected criteria.</p>';
+                return;
+            }
+            
+            // Create a document fragment for better performance
+            const fragment = document.createDocumentFragment();
+            
+            logs.forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-level-${log.level.toLowerCase()}`;
+                
+                const logDate = new Date(log.created_at);
+                const formattedDate = logDate.toLocaleDateString() + ' ' + 
+                                     logDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
+                const logHeader = document.createElement('div');
+                logHeader.className = 'log-header';
+                logHeader.innerHTML = `
+                    <span class="log-level">${log.level}</span>
+                    <span class="log-source">${log.source}</span>
+                    <span class="log-date">${formattedDate}</span>
+                `;
+                
+                const logMessage = document.createElement('div');
+                logMessage.className = 'log-message';
+                logMessage.textContent = log.message;
+                
+                logEntry.appendChild(logHeader);
+                logEntry.appendChild(logMessage);
+                
+                // Add metadata if present
+                if (log.metadata && Object.keys(log.metadata).length > 0) {
+                    const metadataStr = JSON.stringify(log.metadata, null, 2);
+                    if (metadataStr !== '{}') {
+                        const logMetadata = document.createElement('pre');
+                        logMetadata.className = 'log-metadata';
+                        logMetadata.textContent = metadataStr;
+                        logEntry.appendChild(logMetadata);
+                    }
+                }
+                
+                fragment.appendChild(logEntry);
+            });
+            
+            logsContainer.innerHTML = '';
+            logsContainer.appendChild(fragment);
+        })
+        .catch(error => {
+            console.error('Error loading logs:', error);
+            logsContainer.innerHTML = `<p class="error-message">Error loading logs: ${error.message}</p>`;
+        });
+    }
+    
+    // Add event listeners for log controls
+    if (refreshLogsBtn) {
+        refreshLogsBtn.addEventListener('click', loadLogs);
+    }
+    
+    if (logLevelFilter) {
+        logLevelFilter.addEventListener('change', loadLogs);
+    }
+    
+    if (logDaysFilter) {
+        logDaysFilter.addEventListener('change', loadLogs);
+    }
+    
+    // Load logs on page load
+    if (logsContainer) {
+        loadLogs();
+    }
 });

@@ -469,6 +469,109 @@ header p {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
+/* Control panel styles */
+.control-panel {
+    margin-top: 3rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 2rem;
+}
+
+.panel-section {
+    margin-bottom: 2rem;
+}
+
+.log-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.log-controls select {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-family: 'Poppins', sans-serif;
+    background-color: white;
+}
+
+.logs-container {
+    max-height: 500px;
+    overflow-y: auto;
+    background-color: #f5f5f7;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.log-entry {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background-color: white;
+    border-left: 4px solid #ccc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.log-level-info {
+    border-left-color: var(--primary);
+}
+
+.log-level-warning {
+    border-left-color: #ff9800;
+}
+
+.log-level-error {
+    border-left-color: var(--error);
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+.log-level {
+    font-weight: bold;
+}
+
+.log-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-metadata {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--text-light);
+    overflow-x: auto;
+}
+
+.loading-text {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-light);
+}
+
+.empty-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-light);
+    font-style: italic;
+}
+
+.error-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--error);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .images-grid {
@@ -482,6 +585,11 @@ header p {
     
     .detail-actions {
         justify-content: center;
+    }
+    
+    .log-controls {
+        flex-direction: column;
+        gap: 0.5rem;
     }
 }
 

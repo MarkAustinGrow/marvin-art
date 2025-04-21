@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from supabase import create_client, __version__ as supabase_version
 import json
 from typing import Dict, Any, Literal, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from openai import OpenAI
 import requests
 from PIL import Image
@@ -41,6 +41,37 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def get_ui():
     """Serve the web UI"""
     return FileResponse("static/index.html")
+
+# Database Logger class
+class DatabaseLogger:
+    def __init__(self, source="art_generator"):
+        self.source = source
+    
+    def log(self, level, message, metadata=None):
+        """Log a message to the database"""
+        try:
+            log_data = {
+                "level": level,
+                "message": message,
+                "source": self.source,
+                "created_at": datetime.utcnow().isoformat(),
+                "metadata": metadata or {}
+            }
+            
+            supabase.table('marvin_art_logs').insert(log_data).execute()
+        except Exception as e:
+            # Fall back to console logging if database logging fails
+            print(f"Failed to log to database: {str(e)}")
+            print(f"[{level}] {message}")
+    
+    def info(self, message, metadata=None):
+        self.log("INFO", message, metadata)
+    
+    def warning(self, message, metadata=None):
+        self.log("WARNING", message, metadata)
+    
+    def error(self, message, metadata=None):
+        self.log("ERROR", message, metadata)
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -367,6 +398,25 @@ class MarvinArt:
             print(f"Error saving to database: {str(e)}")
             raise
 
+# Initialize logger
+logger = DatabaseLogger(source="art_generator")
+
+# Log cleanup function
+def cleanup_old_logs(days_to_keep=7):
+    """Remove logs older than the specified number of days"""
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days_to_keep)).isoformat()
+        
+        result = supabase.table('marvin_art_logs')\
+            .delete()\
+            .lt('created_at', cutoff_date)\
+            .execute()
+            
+        deleted_count = len(result.data) if result.data else 0
+        logger.info(f"Cleaned up {deleted_count} logs older than {days_to_keep} days")
+    except Exception as e:
+        print(f"Error cleaning up old logs: {str(e)}")
+
 # Initialize MarvinArt instance
 marvin = MarvinArt()
 
@@ -529,16 +579,58 @@ async def get_unposted():
 async def trigger_generation():
     """Manually trigger art generation (no daily limit)"""
     try:
+        # Log the generation request
+        logger.info("Manual art generation triggered")
+        
         # Start the auto_generate in a separate thread with manual type
         thread = Thread(target=lambda: auto_generate(generation_type="manual"))
         thread.daemon = True
         thread.start()
         return {"status": "success", "message": "Art generation triggered"}
     except Exception as e:
+        logger.error(f"Error triggering generation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/logs")
+async def get_logs(
+    limit: int = 100, 
+    offset: int = 0, 
+    level: Optional[str] = None, 
+    source: Optional[str] = None,
+    days: int = 7
+):
+    """Get recent logs with optional filtering"""
+    try:
+        # Log the logs request
+        logger.info("Logs requested", {"limit": limit, "offset": offset, "level": level, "days": days})
+        
+        query = supabase.table('marvin_art_logs')\
+            .select('*')
+        
+        # Apply filters if provided
+        if level:
+            query = query.eq('level', level.upper())
+        if source:
+            query = query.eq('source', source)
+            
+        # Only get logs from the last X days
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+        query = query.gte('created_at', cutoff_date)
+        
+        # Order and paginate
+        query = query.order('created_at', desc=True)\
+            .range(offset, offset + limit - 1)
+            
+        response = query.execute()
+        
+        return response.data
+    except Exception as e:
+        logger.error(f"Error retrieving logs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Schedule tasks
 schedule.every(GENERATION_INTERVAL_HOURS).hours.do(auto_generate)
+schedule.every().day.at("00:00").do(cleanup_old_logs)  # Run log cleanup daily at midnight
 
 if __name__ == "__main__":
     # Start scheduler in a separate thread
