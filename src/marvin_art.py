@@ -28,13 +28,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add startup event handler
-@app.on_startup
-async def startup_event():
-    """Run tasks when the server starts up"""
-    print("Server started, running startup tasks...")
-    # Start the auto_generate in a separate thread to avoid blocking startup
-    Thread(target=auto_generate).start()
+# No startup event handler - we'll use an endpoint instead
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -510,6 +504,18 @@ async def get_unposted():
             "count": len(images),
             "images": images
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trigger-generation")
+async def trigger_generation():
+    """Manually trigger art generation"""
+    try:
+        # Start the auto_generate in a separate thread
+        thread = Thread(target=auto_generate)
+        thread.daemon = True
+        thread.start()
+        return {"status": "success", "message": "Art generation triggered"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
