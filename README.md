@@ -10,7 +10,6 @@ An AI-powered art generation system that creates unique artwork using DALL-E 3 a
 - FastAPI server for API access
 - Supabase database integration
 - Image tracking and management
-- Social media posting integration
 
 ## Setup
 
@@ -68,4 +67,4 @@ python marvin_art.py
 
 ## License
 
-MIT License 
+MIT License

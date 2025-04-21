@@ -149,31 +149,13 @@ Save each image (one per API) to images
 
 You can use Supabase’s JS, Python, or REST SDK.
 
-📈 Phase 6: Social Media Posting & Feedback
-You’ll need to:
+📈 Phase 6: Future Enhancements
+Potential future enhancements:
 
-Post each image to your social platform (can be automated or manual)
-
-Collect:
-
-Likes, shares, replies
-
-Run sentiment analysis (via OpenAI or a tool like Vader or TextBlob)
-
-Store scores in feedback table
-
-🔁 Phase 7: Adapt the Character & Prompt
-Once feedback is in:
-
-Compare scores
-
-If one prompt performs well:
-
-Use GPT to modify it, like:
-
-“Here’s a prompt: X. Based on positive sentiment keywords like ethereal and warm, generate a new version.”
-
-Optionally, update character.json based on cumulative success patterns
+- Implement user feedback collection directly in the Art Generator
+- Add more image generation APIs
+- Create a web interface for browsing generated images
+- Implement prompt refinement based on user preferences
 
 ✅ Daily Workflow Summary
 Load character.json
@@ -184,10 +166,4 @@ Send the prompt to DALL·E, FLUX, Imagen
 
 Save prompt and all image data to Supabase
 
-Post the images on social
-
-Wait ~24h and collect feedback
-
-Score each image
-
-Adapt the best prompt for next cycle
+Generate new images on schedule
