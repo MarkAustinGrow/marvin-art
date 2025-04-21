@@ -11,8 +11,11 @@ from io import BytesIO
 import socket
 import sys
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
+import os
 import time
 import schedule
 from threading import Thread
@@ -29,6 +32,15 @@ app = FastAPI(
 )
 
 # No startup event handler - we'll use an endpoint instead
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Add a route to serve the web UI
+@app.get("/ui")
+async def get_ui():
+    """Serve the web UI"""
+    return FileResponse("static/index.html")
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -434,8 +446,11 @@ def auto_generate():
 
 @app.get("/")
 async def root():
-    """Root endpoint to check if the service is running"""
-    return {"status": "online", "service": "Marvin Art Generator"}
+    """Root endpoint to check if the service is running or redirect to UI"""
+    # For browser requests, redirect to the UI
+    # For API requests, return a JSON response
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui")
 
 @app.get("/character")
 async def get_character():

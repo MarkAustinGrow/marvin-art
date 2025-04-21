@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marvin Art Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Marvin Art Generator</h1>
+            <p>Generate AI art using Marvin's character</p>
+        </header>
+        
+        <div class="controls">
+            <button id="generate-btn" class="btn primary">Generate New Art</button>
+            <div id="status" class="status"></div>
+        </div>
+        
+        <div class="gallery">
+            <h2>Generated Images</h2>
+            <div id="images-container" class="images-grid"></div>
+        </div>
+        
+        <div id="image-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <img id="modal-image" src="" alt="Full size image">
+                <div id="modal-details"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
