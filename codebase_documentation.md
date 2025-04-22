@@ -2,7 +2,7 @@
 
 ## System Overview
 
-The Marvin Art Generator is a distributed system that generates AI art using character-based prompts and manages social media interactions. The system consists of four main components:
+The Marvin Art Generator is a system that generates AI art using character-based prompts. The system consists of three main components:
 
 1. **Marvin Art Generator** (`marvin_art.py`)
    - Generates art prompts using GPT-4
@@ -16,12 +16,7 @@ The Marvin Art Generator is a distributed system that generates AI art using cha
    - Detailed image information display
    - Responsive design for all devices
 
-3. **Social Media Agent** (`social_agent.py`)
-   - Manages social media posting
-   - Collects and analyzes feedback
-   - Runs on port 8001
-
-4. **Logging System**
+3. **Logging System**
    - Records application events and errors
    - Stores logs in Supabase database
    - Provides API access to log data
@@ -60,8 +55,10 @@ The system uses Supabase with the following tables:
   - `id` (UUID): Primary key
   - `prompt_id` (UUID): Reference to prompts table
   - `api_used` (text): The AI art API used (e.g., "dalle")
-  - `image_url` (text): URL of the generated image
+  - `image_url` (text): URL of the generated image (Supabase Storage URL)
   - `local_path` (text): Local storage path
+  - `storage_path` (varchar): Path in Supabase Storage bucket
+  - `dalle_url` (text): Original DALL-E URL (temporary)
   - `settings` (jsonb): Generation settings
   - `generation_type` (text): Type of generation ("auto" or "manual")
   - `created_at` (timestamp): Creation timestamp
@@ -96,7 +93,8 @@ The art generator is responsible for:
 1. Loading character data from Supabase
 2. Generating art prompts using GPT-4
 3. Creating images using DALL-E 3
-4. Storing prompts and images in the database
+4. Storing images in Supabase Storage
+5. Storing prompts and image metadata in the database
 
 Key classes:
 - `MarvinArt`: Main class handling art generation
@@ -118,6 +116,28 @@ The system supports two types of image generation:
    - No daily limit
    - Available on-demand
 
+#### Image Storage System
+
+The system uses a multi-layered approach to ensure images remain accessible:
+
+1. **Supabase Storage**
+   - Primary storage for all generated images
+   - Images are stored in a public bucket named "marvin-art-images"
+   - Organized in folders by timestamp
+   - Provides permanent URLs that don't expire
+
+2. **Local File Storage**
+   - Secondary backup of images on the server
+   - Used as fallback if Supabase Storage is unavailable
+
+3. **Original DALL-E URLs**
+   - Stored as reference but not relied upon
+   - These URLs expire after a few hours
+
+4. **Placeholder Image**
+   - Used when no other image source is available
+   - Prevents broken images in the UI
+
 ### Web Interface
 
 The web interface provides a user-friendly way to interact with the Marvin Art Generator:
@@ -138,19 +158,6 @@ The web interface provides a user-friendly way to interact with the Marvin Art G
    - Status indicators for generation process
    - Auto-refresh when new images are available
 
-### Social Media Agent
-
-The social media agent handles:
-1. Automated posting of generated images
-2. Collection of engagement metrics
-3. Sentiment analysis of feedback
-4. Storage of feedback data
-
-Key features:
-- Maximum 2 posts per day
-- 12-hour interval between posts
-- Random selection of unposted images
-- Feedback collection and analysis
 
 ### Logging System
 
@@ -247,6 +254,9 @@ The system is containerized using Docker:
   - Query params: `limit` (default: 10), `offset` (default: 0)
 - `GET /unposted`: Get images that haven't been posted yet
 - `POST /trigger-generation`: Manually trigger art generation (no daily limit)
+- `GET /proxy-image/{image_id}`: Serve images with fallback mechanisms
+  - Tries Supabase Storage, local files, and original URLs
+  - Falls back to placeholder image if all sources fail
 - `GET /logs`: Retrieve application logs
   - Query params: 
     - `limit` (default: 100): Maximum number of logs to return
@@ -258,11 +268,6 @@ The system is containerized using Docker:
 #### Static Files
 - `/static/*`: Serves static files for the web interface
 
-### Social Media Agent (Port 8001)
-
-- `POST /post`: Create a new social media post
-- `GET /feedback`: Retrieve feedback metrics
-- `POST /feedback`: Submit new feedback
 
 ## Web Interface Usage
 
@@ -288,6 +293,8 @@ The web interface is accessible at `http://your-server-ip:8000/` or your configu
 
 ## Database Migration
 
+### Adding Generation Type
+
 If you need to add the `generation_type` column to your database, run the following SQL:
 
 ```sql
@@ -298,6 +305,38 @@ ADD COLUMN generation_type VARCHAR(10) DEFAULT 'auto' NOT NULL;
 -- Update existing records to have 'auto' as their generation type
 UPDATE images SET generation_type = 'auto';
 ```
+
+### Adding Storage Columns
+
+To add Supabase Storage support, run the following SQL:
+
+```sql
+-- Add storage_path column to images table
+ALTER TABLE images 
+ADD COLUMN storage_path VARCHAR(255);
+
+-- Add dalle_url column to store the original URL
+ALTER TABLE images 
+ADD COLUMN dalle_url TEXT;
+```
+
+### Migrating Existing Images
+
+To migrate existing images to Supabase Storage, use the `migrate_images.py` script:
+
+```bash
+# On your local machine
+python migrate_images.py
+
+# On the server (if Python 3 is the default)
+python3 migrate_images.py
+```
+
+This script will:
+1. Find all images without a storage_path
+2. Try to upload them to Supabase Storage from local files
+3. If local files aren't available, try to download from the original URL
+4. Update the database with the new storage_path and permanent URL
 
 ## Development Guidelines
 
@@ -348,7 +387,6 @@ UPDATE images SET generation_type = 'auto';
 4. Monitor logs for any issues:
    ```bash
    docker logs marvin_marvin-art_1
-   docker logs marvin_marvin-social_1
    ```
 
 ## Monitoring and Maintenance
@@ -402,3 +440,16 @@ UPDATE images SET generation_type = 'auto';
    - Verify the `marvin_art_logs` table exists
    - Check for errors in the console output
    - Use the `/logs` endpoint to view recent logs
+
+5. **Image Loading Issues**
+   - If images aren't displaying, check the browser console for errors
+   - Verify the Supabase Storage bucket is set to public
+   - Check if the proxy endpoint is working correctly
+   - Ensure the placeholder image exists at `static/placeholder.png`
+   - Check if the image exists in Supabase Storage using the dashboard
+
+6. **Supabase Storage Issues**
+   - Verify your Supabase API key has storage permissions
+   - Check if the "marvin-art-images" bucket exists and is public
+   - Ensure you have sufficient storage quota
+   - Check network connectivity to Supabase
