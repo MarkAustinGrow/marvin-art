@@ -467,8 +467,7 @@ def cleanup_old_logs(days_to_keep=7):
 marvin = MarvinArt()
 
 # Configuration
-MAX_IMAGES_PER_DAY = 2
-GENERATION_INTERVAL_HOURS = 12  # Space generations evenly throughout the day
+MAX_IMAGES_PER_DAY = 4  # Increased from 2 to 4
 CHARACTER_ID = "marvin"  # ID of the character in the database
 
 def get_generated_images_today(generation_type: str = "auto") -> int:
@@ -516,8 +515,14 @@ def get_unposted_images() -> List[Dict[str, Any]]:
 def auto_generate(generation_type: str = "auto"):
     """Automatically generate art based on schedule or manual trigger"""
     try:
-        # Only check limit for automatic generation
+        # Only check limit and time window for automatic generation
         if generation_type == "auto":
+            # Check if current time is within the allowed window (9am-9pm)
+            current_hour = datetime.now().hour
+            if current_hour < 9 or current_hour >= 21:
+                print(f"Outside generation window (9am-9pm), skipping")
+                return
+                
             # Check if we've reached the daily limit for automatic generation
             images_today = get_generated_images_today(generation_type="auto")
             if images_today >= MAX_IMAGES_PER_DAY:
@@ -752,7 +757,11 @@ async def proxy_image(image_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Schedule tasks
-schedule.every(GENERATION_INTERVAL_HOURS).hours.do(auto_generate)
+# Schedule 4 generations between 9am and 9pm
+schedule.every().day.at("09:00").do(auto_generate)
+schedule.every().day.at("13:00").do(auto_generate)
+schedule.every().day.at("17:00").do(auto_generate)
+schedule.every().day.at("21:00").do(auto_generate)
 schedule.every().day.at("00:00").do(cleanup_old_logs)  # Run log cleanup daily at midnight
 
 if __name__ == "__main__":
